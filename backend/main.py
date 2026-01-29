@@ -151,3 +151,17 @@ def get_my_applications(user_id: str):
         return schemas.MyApplicationsResponse(
             has_applications=False
         )
+
+@app.delete('/delete/{user_id}')
+def delete_user(user_id: str):
+    db = SessionLocal()
+    
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db.delete(user)
+    db.commit()
+    
+    return {"detail": "User deleted successfully"}
