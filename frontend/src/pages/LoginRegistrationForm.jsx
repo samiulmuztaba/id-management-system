@@ -110,7 +110,6 @@ export default function Login_Registration_Form() {
     const credentials = { username, password };
 
     try {
-      // 1. Log them in
       const authRes = await fetch("https://id-management-system-8bmi.onrender.com/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,8 +117,12 @@ export default function Login_Registration_Form() {
       });
 
       if (!authRes.ok) {
-        // If login fails, try registration logic or throw error
-        throw new Error("Invalid Login. Make sure the user exists!");
+        // If login fails, register the user as they don't exist yet
+        const registerRes = await fetch("https://id-management-system-8bmi.onrender.com/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+        });
       }
       
       const user = await authRes.json();
