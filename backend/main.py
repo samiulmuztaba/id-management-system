@@ -136,7 +136,7 @@ def approve_application(application_id: int):
     )
 
 @app.get("/my_applications/{user_id}")
-def get_my_applications(user_id: int):
+def get_my_applications(user_id: str):
     db = SessionLocal()
     
     application = db.query(models.Application).filter(models.Application.user_id == user_id).first()
