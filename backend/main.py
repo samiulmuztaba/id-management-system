@@ -3,8 +3,36 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import SessionLocal, Base, engine
 import models
 import schemas
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 models.Base.metadata.create_all(bind=engine)
+
+# Seed admin user on startup
+def create_admin_user():
+    db = SessionLocal()
+    
+    # Check if admin already exists
+    admin_exists = db.query(models.User).filter(models.User.is_admin == True).first()
+    
+    if not admin_exists:
+        admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+        admin_user = models.User(
+            username="admin",
+            password=admin_password,
+            is_admin=True
+        )
+        db.add(admin_user)
+        db.commit()
+        print(f"Admin user created: username='admin'")
+    else:
+        print("Admin user already exists")
+    
+    db.close()
+
+create_admin_user()
 
 app = FastAPI()
 app.add_middleware(
@@ -77,6 +105,22 @@ def get_all_users():
     
     return response
 
+@app.get('/user/{user_id}')
+def get_user(user_id: str):
+    db = SessionLocal()
+    
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return schemas.UserResponse(
+        user_id=user.id,
+        success=True,
+        username=user.username,
+        is_admin=user.is_admin
+    )
+
 @app.post("/submit_form")
 def submit_form(request: schemas.FormSubmission):
     db = SessionLocal()
@@ -98,9 +142,14 @@ def submit_form(request: schemas.FormSubmission):
     )
 
 
-@app.get('/pending_applications')
-def get_pending_applications():
+@app.get('/pending_applications/{user_id}')
+def get_pending_applications(user_id: str):
     db = SessionLocal()
+    
+    # Verify that the requesting user is an admin
+    admin_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not admin_user or not admin_user.is_admin:
+        raise HTTPException(status_code=403, detail="Unauthorized: Admin access required")
     
     applications = db.query(models.Application).filter(models.Application.approval_status == "pending").all()
     
@@ -115,9 +164,14 @@ def get_pending_applications():
     
     return response
 
-@app.post("/approve_application/{application_id}")
-def approve_application(application_id: int):
+@app.post("/approve_application/{application_id}/{user_id}")
+def approve_application(application_id: str, user_id: str):
     db = SessionLocal()
+    
+    # Verify that the requesting user is an admin
+    admin_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not admin_user or not admin_user.is_admin:
+        raise HTTPException(status_code=403, detail="Unauthorized: Admin access required")
     
     application = db.query(models.Application).filter(models.Application.application_id == application_id).first()
     
@@ -152,11 +206,16 @@ def get_my_applications(user_id: str):
             has_applications=False
         )
 
-@app.delete('/delete/{user_id}')
-def delete_user(user_id: str):
+@app.delete('/delete/{user_id}/{target_user_id}')
+def delete_user(user_id: str, target_user_id: str):
     db = SessionLocal()
     
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    # Verify that the requesting user is an admin
+    admin_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not admin_user or not admin_user.is_admin:
+        raise HTTPException(status_code=403, detail="Unauthorized: Admin access required")
+    
+    user = db.query(models.User).filter(models.User.id == target_user_id).first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

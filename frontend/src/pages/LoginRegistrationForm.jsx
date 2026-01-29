@@ -32,12 +32,10 @@ export default function Login_Registration_Form() {
         user = await authRes.json();
       }
       
-      localStorage.setItem("user", JSON.stringify(user));
-
       if (user.is_admin) {
-        navigate("/admin");
+        navigate(`/admin?user_id=${user.user_id}&is_admin=true`);
       } else {
-        navigate("/form");
+        navigate(`/form?user_id=${user.user_id}`);
       }
     } catch (err) {
       alert(err.message);
