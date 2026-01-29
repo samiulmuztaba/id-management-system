@@ -10,18 +10,18 @@ class RegistrationRequest(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    user_id: int
+    user_id: str
     success: bool
     username: str
     is_admin: bool
 
 class FormSubmission(BaseModel):
-    user_id: int
+    user_id: str
     form_data: dict
 
 class ApplicationResponse(BaseModel):
-    application_id: int
-    user_id: int
+    application_id: str
+    user_id: str
     form_data: dict
     approval_status: str
 
