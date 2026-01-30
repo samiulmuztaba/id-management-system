@@ -38,6 +38,8 @@ def create_admin_user():
         else:
             print("Admin user already exists and password matches")
     
+    print(f"[ENV] {repr(os.getenv('ADMIN_PASSWORD'))}")
+    print(f"[DB ] {repr(admin_exists.password)}")
     db.close()
 
 create_admin_user()
@@ -60,12 +62,22 @@ def health_check():
 @app.post("/login")
 def login(request: schemas.LoginRequest):
     db = SessionLocal()
-    
-    user = db.query(models.User).filter(models.User.username == request.username).first()
+
+    user = db.query(models.User).filter(
+        models.User.username == request.username
+    ).first()
+
+    print("RAW REQUEST:", request)
+    print("USERNAME:", repr(request.username))
+    print("PASSWORD:", repr(request.password))
 
     if not user:
+        print("USER NOT FOUND")
         db.close()
         raise HTTPException(status_code=404, detail="User not found")
+
+    print("DB PASSWORD:", repr(user.password))
+    print("EQUAL?", request.password == user.password)
 
     if user.password != request.password:
         db.close()
@@ -77,8 +89,10 @@ def login(request: schemas.LoginRequest):
         username=user.username,
         is_admin=user.is_admin
     )
+
     db.close()
     return resp
+
 
 @app.post("/register")
 def register(request: schemas.RegistrationRequest):
