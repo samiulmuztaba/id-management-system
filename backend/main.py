@@ -28,7 +28,15 @@ def create_admin_user():
         db.commit()
         print(f"Admin user created: username='admin'")
     else:
-        print("Admin user already exists")
+        # If admin exists but password doesn't match env, update it so admin can log in with configured password
+        admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+        if getattr(admin_exists, "password", None) != admin_password:
+            admin_exists.password = admin_password
+            db.add(admin_exists)
+            db.commit()
+            print("Admin user password updated from ADMIN_PASSWORD env")
+        else:
+            print("Admin user already exists and password matches")
     
     db.close()
 
@@ -55,14 +63,22 @@ def login(request: schemas.LoginRequest):
     
     user = db.query(models.User).filter(models.User.username == request.username).first()
 
-    if user and user.password == request.password:
-        return schemas.UserResponse(
-            user_id=user.id,
-            success=True,
-            username=user.username,
-            is_admin=user.is_admin
-        )
-    raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not user:
+        db.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.password != request.password:
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    resp = schemas.UserResponse(
+        user_id=user.id,
+        success=True,
+        username=user.username,
+        is_admin=user.is_admin
+    )
+    db.close()
+    return resp
 
 @app.post("/register")
 def register(request: schemas.RegistrationRequest):

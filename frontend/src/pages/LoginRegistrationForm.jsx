@@ -1,19 +1,19 @@
 import { useNavigate } from "react-router";
 
+const BASE_URL = "https://id-management-system-8bmi.onrender.com";
+
 export default function Login_Registration_Form() {
   const navigate = useNavigate();
 
   const handleAuth = async (e) => {
-    // FIX 1: Prevent the page from refreshing
     e.preventDefault();
 
-    // FIX 2: Extract values from the form inputs
     const username = e.target.username.value;
     const password = e.target.password.value;
     const credentials = { username, password };
 
     try {
-      const authRes = await fetch("https://id-management-system-8bmi.onrender.com/login", {
+      const authRes = await fetch(`${BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
@@ -21,19 +21,34 @@ export default function Login_Registration_Form() {
 
       let user;
       if (!authRes.ok) {
-        // If login fails, register the user as they don't exist yet
-        const registerRes = await fetch("https://id-management-system-8bmi.onrender.com/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(credentials),
-        });
-        user = await registerRes.json();
-      } else {
-        user = await authRes.json();
+        const err = await authRes.json().catch(() => null);
+        alert(err?.detail || (authRes.status === 401 ? "Invalid password" : "Login failed"));
+        return;
       }
-      
+
+      user = await authRes.json();
+
+      // After login/register, fetch whether user already has an application
+      if (!user || !user.user_id) {
+        alert("Authentication failed: missing user info");
+        return;
+      }
+
       if (user.is_admin) {
         navigate(`/admin?user_id=${user.user_id}&is_admin=true`);
+        return;
+      }
+
+      const appsRes = await fetch(`${BASE_URL}/my_applications/${user.user_id}`);
+      if (!appsRes.ok) {
+        // If backend errors, fall back to form
+        navigate(`/form?user_id=${user.user_id}`);
+        return;
+      }
+
+      const apps = await appsRes.json();
+      if (apps.has_applications) {
+        navigate(`/waiting?user_id=${user.user_id}`);
       } else {
         navigate(`/form?user_id=${user.user_id}`);
       }
@@ -55,7 +70,7 @@ export default function Login_Registration_Form() {
               Username
             </label>
             <input
-              name="username" // Added name attribute
+              name="username"
               id="username"
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
               type="text"
@@ -67,7 +82,7 @@ export default function Login_Registration_Form() {
               Password
             </label>
             <input
-              name="password" // Added name attribute
+              name="password"
               id="password"
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
               type="password"
@@ -78,7 +93,7 @@ export default function Login_Registration_Form() {
             type="submit"
             className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-600 transition-colors cursor-pointer"
           >
-            Register/Login
+            Login / Register
           </button>
         </form>
       </div>
