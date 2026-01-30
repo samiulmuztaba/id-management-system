@@ -21,37 +21,34 @@ export default function Login_Registration_Form() {
 
       let user;
       if (!authRes.ok) {
-        const err = await authRes.json().catch(() => null);
-        alert(err?.detail || (authRes.status === 401 ? "Invalid password" : "Login failed"));
-        return;
+        // if the user doesn't exist, *make* them exist
+        const user = await fetch(`${BASE_URL}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+        });
+        if (!user.ok) {
+          const err = await user.json().catch(() => null);
+          alert(err?.detail || "Registration failed");
+          return;
+        }
       }
 
       user = await authRes.json();
 
       // After login/register, fetch whether user already has an application
-      if (!user || !user.user_id) {
-        alert("Authentication failed: missing user info");
-        return;
-      }
+      // if (!user || !user.user_id) {
+      //   alert("Authentication failed: missing user info");
+      //   return;
+      // }
 
       if (user.is_admin) {
         navigate(`/admin?user_id=${user.user_id}&is_admin=true`);
         return;
       }
 
-      const appsRes = await fetch(`${BASE_URL}/my_applications/${user.user_id}`);
-      if (!appsRes.ok) {
-        // If backend errors, fall back to form
-        navigate(`/form?user_id=${user.user_id}`);
-        return;
-      }
-
-      const apps = await appsRes.json();
-      if (apps.has_applications) {
-        navigate(`/waiting?user_id=${user.user_id}`);
-      } else {
-        navigate(`/form?user_id=${user.user_id}`);
-      }
+      // Redirect regular users to the homepage with their user_id
+      navigate(`/?user_id=${user.user_id}`);
     } catch (err) {
       alert(err.message);
     }

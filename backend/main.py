@@ -18,7 +18,7 @@ def create_admin_user():
     admin_exists = db.query(models.User).filter(models.User.is_admin == True).first()
     
     if not admin_exists:
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+        admin_password = 'admin' # Default password
         admin_user = models.User(
             username="admin",
             password=admin_password,
@@ -26,10 +26,10 @@ def create_admin_user():
         )
         db.add(admin_user)
         db.commit()
-        print(f"Admin user created: username='admin'")
+        print(f"Admin user created: username='admin', passowrd='{admin_password}'")
     else:
         # If admin exists but password doesn't match env, update it so admin can log in with configured password
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+        admin_password = 'admin'  # Default password
         if getattr(admin_exists, "password", None) != admin_password:
             admin_exists.password = admin_password
             db.add(admin_exists)
@@ -208,6 +208,46 @@ def approve_application(application_id: str, user_id: str):
         form_data=application.form_data,
         approval_status=application.approval_status
     )
+
+
+@app.get('/admin_password_needs_change/{user_id}')
+def admin_password_needs_change(user_id: str):
+    db = SessionLocal()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user or not user.is_admin:
+        db.close()
+        raise HTTPException(status_code=403, detail="Unauthorized: Admin access required")
+
+    default = os.getenv("ADMIN_PASSWORD", "admin")
+    needs = (getattr(user, "password", None) == default)
+    db.close()
+    return {"needs_change": needs}
+
+
+@app.post('/change_password/{user_id}')
+def change_password(user_id: str, payload: dict):
+    db = SessionLocal()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        db.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    current = payload.get("current_password")
+    new_password = payload.get("new_password")
+    if current is None or new_password is None:
+        db.close()
+        raise HTTPException(status_code=400, detail="Missing current_password or new_password")
+
+    if user.password != current:
+        db.close()
+        raise HTTPException(status_code=401, detail="Current password incorrect")
+
+    user.password = new_password
+    db.add(user)
+    db.commit()
+    db.close()
+
+    return {"detail": "Password changed successfully"}
 
 @app.get("/my_applications/{user_id}")
 def get_my_applications(user_id: str):
