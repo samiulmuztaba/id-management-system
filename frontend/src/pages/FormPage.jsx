@@ -31,7 +31,7 @@ export default function FormPage(){
         .then(response => response.json())
         .then(data => {
             alert("Form submitted successfully!");
-            navigate(`/waiting?user_id=${userId}`);
+            navigate(`/`);
         })
         .catch(error => {
             alert("Error submitting form: " + error.message);
